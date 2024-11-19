@@ -1,6 +1,7 @@
 from typing import List
 from fastapi import HTTPException
 from app.models import Group, User
+from neomodel import db
 from app.schemas import (
     CreateGroupSchema,
     CreateUserSchema,
@@ -11,8 +12,32 @@ from app.schemas import (
 )
 
 
-async def get_users():
-    return User.nodes.all()
+async def get_users(limit: int = 50, offset: int = 0):
+    query = """
+    MATCH (user:User)
+    OPTIONAL MATCH (user)-[rel:Follow]->(target:User)
+    RETURN user, collect({target: target}) AS relationships
+    SKIP $offset LIMIT $limit
+    """
+    results, _ = db.cypher_query(
+        query,
+        {"offset": offset, "limit": limit},
+    )
+
+    users = []
+
+    for res in results:
+        node, rels = res
+        user = UserSchema(**node._properties)
+
+        for rel in rels:
+            if not rel["target"]:
+                continue
+            user.follows.append(rel["target"]["user_id"])
+
+        users.append(user)
+
+    return users
 
 
 async def get_user(user_id: int):
@@ -105,8 +130,32 @@ async def delete_user(user_id: int) -> bool:
     return User.delete(item)
 
 
-async def get_groups():
-    return Group.nodes.all()
+async def get_groups(limit: int = 50, offset: int = 0):
+    query = """
+    MATCH (group:Group)
+    OPTIONAL MATCH (subscriber:User)-[rel:Subscribe]->(group)
+    RETURN group, collect({subscriber: subscriber, relationship: type(rel)}) AS subscribers
+    SKIP $offset LIMIT $limit
+    """
+    results, _ = db.cypher_query(
+        query,
+        {"offset": offset, "limit": limit},
+    )
+
+    groups = []
+
+    for res in results:
+        node, rels = res
+        group = GroupSchema(**node._properties)
+
+        for rel in rels:
+            if not rel["subscriber"]:
+                continue
+            group.members.append(rel["subscriber"]["user_id"])
+
+        groups.append(group)
+
+    return groups
 
 
 async def get_group(group_id: int):
