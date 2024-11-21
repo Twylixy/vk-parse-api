@@ -7,7 +7,7 @@ class UserSchema(BaseModel):
     name: str
     sex: str
     home_town: str
-    follows: list[int] = []
+    friends: list[int] = []
 
 
 class GroupSchema(BaseModel):

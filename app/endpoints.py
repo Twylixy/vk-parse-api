@@ -33,7 +33,7 @@ async def get_users(limit: int = 50, offset: int = 0):
         for rel in rels:
             if not rel["target"]:
                 continue
-            user.follows.append(rel["target"]["user_id"])
+            user.friends.append(rel["target"]["user_id"])
 
         users.append(user)
 
